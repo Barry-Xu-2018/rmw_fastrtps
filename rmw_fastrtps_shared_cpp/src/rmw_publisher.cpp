@@ -117,6 +117,37 @@ __rmw_publisher_assert_liveliness(
 }
 
 rmw_ret_t
+__rmw_publisher_wait_for_all_acked(
+  const char * identifier,
+  const rmw_publisher_t * publisher,
+  const rmw_time_t * wait_timeout)
+{
+  RMW_CHECK_ARGUMENT_FOR_NULL(publisher, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
+    publisher,
+    publisher->implementation_identifier,
+    identifier,
+    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+
+  auto info = static_cast<CustomPublisherInfo *>(publisher->data);
+  if (nullptr == info) {
+    RMW_SET_ERROR_MSG("publisher internal data is invalid");
+    return RMW_RET_ERROR;
+  }
+
+  eprosima::fastrtps::Duration_t max_wait;
+  if (nullptr != wait_timeout) {
+    max_wait = rmw_time_to_fastrtps(*wait_timeout);
+  } else {
+    // It's a workaround that using int32 max value instead of infinite time.
+    max_wait = eprosima::fastrtps::Duration_t(INT32_MAX, 0);
+  }
+  bool ret = info->publisher_->wait_for_all_acked(max_wait);
+
+  return ret ? RMW_RET_OK : RMW_RET_TIMEOUT;
+}
+
+rmw_ret_t
 __rmw_publisher_get_actual_qos(
   const rmw_publisher_t * publisher,
   rmw_qos_profile_t * qos)
