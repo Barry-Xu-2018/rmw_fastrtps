@@ -96,6 +96,25 @@ bool PubListener::take_event(
         incompatible_qos_status_.total_count_change = 0;
       }
       break;
+    case RMW_EVENT_PUBLICATION_MATCHED:
+    case RMW_EVENT_PUBLICATION_UNMATCHED:
+      {
+        auto rmw_data = static_cast<rmw_matched_status_t *>(event_info);
+        if (matched_changes_) {
+          rmw_data->current_count = matched_status_.current_count;
+          rmw_data->current_count_change = matched_status_.current_count_change;
+
+          matched_changes_ = false;
+        } else {
+          eprosima::fastdds::dds::PublicationMatchedStatus matched_status;
+          publisher_info_->data_writer_->get_publication_matched_status(matched_status);
+          rmw_data->current_count = matched_status.current_count;
+          rmw_data->current_count_change = matched_status.current_count_change;
+        }
+        matched_status_.current_count_change = 0;
+        matched_status_.total_count_change = 0;
+      }
+      break;
     default:
       return false;
   }
@@ -138,6 +157,32 @@ void PubListener::set_on_new_event_callback(
           incompatible_qos_status_.total_count_change = 0;
         }
         break;
+      case RMW_EVENT_PUBLICATION_MATCHED:
+        {
+          publisher_info_->data_writer_->get_publication_matched_status(
+            matched_status_);
+          if (matched_status_.total_count_change > 0) {
+            callback(
+              user_data,
+              matched_status_.total_count_change);
+            matched_status_.total_count_change = 0;
+            matched_status_.current_count_change = 0;
+          }
+        }
+        break;
+      case RMW_EVENT_PUBLICATION_UNMATCHED:
+        {
+          publisher_info_->data_writer_->get_publication_matched_status(
+            matched_status_);
+          if ((matched_status_.total_count_change - matched_status_.current_count_change) > 0) {
+            callback(
+              user_data,
+              matched_status_.total_count_change - matched_status_.current_count_change);
+            matched_status_.total_count_change = 0;
+            matched_status_.current_count_change = 0;
+          }
+        }
+        break;
       default:
         break;
     }
@@ -157,6 +202,36 @@ void PubListener::set_on_new_event_callback(
 
     user_data_[event_type] = nullptr;
     on_new_event_cb_[event_type] = nullptr;
+  }
+}
+
+void
+PubListener::on_publication_matched(
+  eprosima::fastdds::dds::DataWriter * /* writer */,
+  const eprosima::fastdds::dds::PublicationMatchedStatus & info)
+{
+  rmw_event_type_t event_type = RMW_EVENT_INVALID;
+  {
+    std::lock_guard<std::mutex> lock(discovery_m_);
+    if (info.current_count_change == 1) {
+      subscriptions_.insert(eprosima::fastrtps::rtps::iHandle2GUID(info.last_subscription_handle));
+      event_type = RMW_EVENT_PUBLICATION_MATCHED;
+    } else if (info.current_count_change == -1) {
+      subscriptions_.erase(eprosima::fastrtps::rtps::iHandle2GUID(info.last_subscription_handle));
+      event_type = RMW_EVENT_PUBLICATION_UNMATCHED;
+    }
+  }
+
+  if (event_type != RMW_EVENT_INVALID) {
+    std::unique_lock<std::mutex> lock_mutex(on_new_event_m_);
+
+    matched_status_.total_count_change += info.total_count_change;
+    matched_status_.current_count = info.current_count;
+    matched_status_.current_count_change += info.current_count_change;
+
+    matched_changes_ = true;
+
+    trigger_event(event_type);
   }
 }
 

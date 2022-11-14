@@ -62,6 +62,7 @@ public:
     , deadline_changes_(false)
     , liveliness_changes_(false)
     , incompatible_qos_changes_(false)
+    , matched_changes_(false)
   {
   }
 
@@ -70,15 +71,7 @@ public:
   void
   on_publication_matched(
     eprosima::fastdds::dds::DataWriter * /* writer */,
-    const eprosima::fastdds::dds::PublicationMatchedStatus & info) final
-  {
-    std::lock_guard<std::mutex> lock(discovery_m_);
-    if (info.current_count_change == 1) {
-      subscriptions_.insert(eprosima::fastrtps::rtps::iHandle2GUID(info.last_subscription_handle));
-    } else if (info.current_count_change == -1) {
-      subscriptions_.erase(eprosima::fastrtps::rtps::iHandle2GUID(info.last_subscription_handle));
-    }
-  }
+    const eprosima::fastdds::dds::PublicationMatchedStatus & info) final;
 
   RMW_FASTRTPS_SHARED_CPP_PUBLIC
   void
@@ -142,6 +135,12 @@ private:
   RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
 
   bool incompatible_qos_changes_
+  RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
+
+  eprosima::fastdds::dds::PublicationMatchedStatus matched_status_
+  RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
+
+  bool matched_changes_
   RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
 
   eprosima::fastdds::dds::OfferedIncompatibleQosStatus incompatible_qos_status_

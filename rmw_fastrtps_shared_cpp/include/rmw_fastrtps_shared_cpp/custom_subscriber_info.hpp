@@ -90,24 +90,16 @@ public:
     , liveliness_changes_(false)
     , sample_lost_changes_(false)
     , incompatible_qos_changes_(false)
+    , matched_changes_(false)
   {
   }
 
   // DataReaderListener implementation
+  RMW_FASTRTPS_SHARED_CPP_PUBLIC
   void
   on_subscription_matched(
     eprosima::fastdds::dds::DataReader *,
-    const eprosima::fastdds::dds::SubscriptionMatchedStatus & info) final
-  {
-    {
-      std::lock_guard<std::mutex> lock(discovery_m_);
-      if (info.current_count_change == 1) {
-        publishers_.insert(eprosima::fastrtps::rtps::iHandle2GUID(info.last_publication_handle));
-      } else if (info.current_count_change == -1) {
-        publishers_.erase(eprosima::fastrtps::rtps::iHandle2GUID(info.last_publication_handle));
-      }
-    }
-  }
+    const eprosima::fastdds::dds::SubscriptionMatchedStatus &) final;
 
   void
   on_data_available(
@@ -204,11 +196,19 @@ private:
   bool incompatible_qos_changes_
   RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
 
+  eprosima::fastdds::dds::SubscriptionMatchedStatus matched_status_
+  RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
+
+  bool matched_changes_
+  RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
+
   eprosima::fastdds::dds::RequestedIncompatibleQosStatus incompatible_qos_status_
   RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
 
   std::set<eprosima::fastrtps::rtps::GUID_t> publishers_ RCPPUTILS_TSA_GUARDED_BY(
     discovery_m_);
+
+  void trigger_event(rmw_event_type_t event_type);
 
   rmw_event_callback_t on_new_message_cb_{nullptr};
 
