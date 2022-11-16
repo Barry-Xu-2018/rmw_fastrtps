@@ -28,7 +28,11 @@ static const std::unordered_set<rmw_event_type_t> g_rmw_event_type_set{
   RMW_EVENT_OFFERED_DEADLINE_MISSED,
   RMW_EVENT_MESSAGE_LOST,
   RMW_EVENT_OFFERED_QOS_INCOMPATIBLE,
-  RMW_EVENT_REQUESTED_QOS_INCOMPATIBLE
+  RMW_EVENT_REQUESTED_QOS_INCOMPATIBLE,
+  RMW_EVENT_SUBSCRIPTION_MATCHED,
+  RMW_EVENT_SUBSCRIPTION_UNMATCHED,
+  RMW_EVENT_PUBLICATION_MATCHED,
+  RMW_EVENT_PUBLICATION_UNMATCHED,
 };
 
 namespace rmw_fastrtps_shared_cpp
@@ -62,6 +66,14 @@ eprosima::fastdds::dds::StatusMask rmw_event_to_dds_statusmask(
     case RMW_EVENT_REQUESTED_QOS_INCOMPATIBLE:
       ret_statusmask = eprosima::fastdds::dds::StatusMask::requested_incompatible_qos();
       break;
+    case RMW_EVENT_SUBSCRIPTION_MATCHED:
+    case RMW_EVENT_SUBSCRIPTION_UNMATCHED:
+      ret_statusmask = eprosima::fastdds::dds::StatusMask::subscription_matched();
+      break;
+    case RMW_EVENT_PUBLICATION_MATCHED:
+    case RMW_EVENT_PUBLICATION_UNMATCHED:
+      ret_statusmask = eprosima::fastdds::dds::StatusMask::publication_matched();
+      break;  
     default:
       break;
   }
