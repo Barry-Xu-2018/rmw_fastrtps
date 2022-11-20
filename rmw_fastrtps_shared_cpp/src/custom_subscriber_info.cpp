@@ -119,7 +119,6 @@ bool SubListener::take_event(
       }
       break;
     case RMW_EVENT_SUBSCRIPTION_MATCHED:
-    case RMW_EVENT_SUBSCRIPTION_UNMATCHED:
       {
         auto rmw_data = static_cast<rmw_matched_status_t *>(event_info);
         if (matched_changes_) {
@@ -137,6 +136,26 @@ bool SubListener::take_event(
         }
         matched_status_.current_count_change = 0;
         matched_status_.total_count_change = 0;
+      }
+      break;
+    case RMW_EVENT_SUBSCRIPTION_UNMATCHED:
+      {
+        auto rmw_data = static_cast<rmw_matched_status_t *>(event_info);
+        if (unmatched_changes_) {
+          rmw_data->total_count_change = unmatched_status_.total_count_change;
+          rmw_data->current_count = unmatched_status_.current_count;
+          rmw_data->current_count_change = unmatched_status_.current_count_change;
+
+          unmatched_changes_ = false;
+        } else {
+          eprosima::fastdds::dds::SubscriptionMatchedStatus matched_status;
+          subscriber_info_->data_reader_->get_subscription_matched_status(matched_status);
+          rmw_data->total_count_change = matched_status.total_count_change;
+          rmw_data->current_count = matched_status.current_count;
+          rmw_data->current_count_change = matched_status.current_count_change;
+        }
+        unmatched_status_.current_count_change = 0;
+        unmatched_status_.total_count_change = 0;
       }
       break;
     default:
@@ -220,13 +239,13 @@ void SubListener::set_on_new_event_callback(
       case RMW_EVENT_SUBSCRIPTION_UNMATCHED:
         {
           subscriber_info_->data_reader_->get_subscription_matched_status(
-            matched_status_);
-          if ((matched_status_.total_count_change - matched_status_.current_count_change) > 0) {
+            unmatched_status_);
+          if ((unmatched_status_.total_count_change - unmatched_status_.current_count_change) > 0) {
             callback(
               user_data,
-              matched_status_.total_count_change - matched_status_.current_count_change);
-            matched_status_.total_count_change = 0;
-            matched_status_.current_count_change = 0;
+              unmatched_status_.total_count_change - unmatched_status_.current_count_change);
+            unmatched_status_.total_count_change = 0;
+            unmatched_status_.current_count_change = 0;
           }
         }
       default:
@@ -383,7 +402,12 @@ void SubListener::on_subscription_matched(
     matched_status_.current_count = info.current_count;
     matched_status_.current_count_change += info.current_count_change;
 
+    unmatched_status_.total_count_change += info.total_count_change;
+    unmatched_status_.current_count = info.current_count;
+    unmatched_status_.current_count_change += info.current_count_change;
+
     matched_changes_ = true;
+    unmatched_changes_ = true;
 
     trigger_event(event_type);
   }

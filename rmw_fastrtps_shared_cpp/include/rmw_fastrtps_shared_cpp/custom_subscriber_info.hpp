@@ -202,6 +202,12 @@ private:
   bool matched_changes_
   RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
 
+  eprosima::fastdds::dds::SubscriptionMatchedStatus unmatched_status_
+  RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
+
+  bool unmatched_changes_
+  RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
+
   eprosima::fastdds::dds::RequestedIncompatibleQosStatus incompatible_qos_status_
   RCPPUTILS_TSA_GUARDED_BY(on_new_event_m_);
 
