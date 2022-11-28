@@ -73,7 +73,7 @@ eprosima::fastdds::dds::StatusMask rmw_event_to_dds_statusmask(
     case RMW_EVENT_PUBLICATION_MATCHED:
     case RMW_EVENT_PUBLICATION_UNMATCHED:
       ret_statusmask = eprosima::fastdds::dds::StatusMask::publication_matched();
-      break;  
+      break;
     default:
       break;
   }

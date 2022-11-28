@@ -201,6 +201,17 @@ __rmw_wait(
         if (guard_condition.get_trigger_value()) {
           active = true;
           guard_condition.set_trigger_value(false);
+        } else {
+          switch (event->event_type) {
+            case RMW_EVENT_SUBSCRIPTION_MATCHED:
+            case RMW_EVENT_SUBSCRIPTION_UNMATCHED:
+            case RMW_EVENT_PUBLICATION_MATCHED:
+            case RMW_EVENT_PUBLICATION_UNMATCHED:
+              active = false;
+              break;
+            default:
+              break;
+          }
         }
       }
 
