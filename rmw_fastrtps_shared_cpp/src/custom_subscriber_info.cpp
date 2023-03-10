@@ -118,6 +118,29 @@ bool SubListener::take_event(
         incompatible_qos_status_.total_count_change = 0;
       }
       break;
+    case RMW_EVENT_SUBSCRIPTION_MATCHED:
+      {
+        auto rmw_data = static_cast<rmw_matched_status_t *>(event_info);
+
+        if (matched_changes_) {
+          rmw_data->total_count = static_cast<size_t>(matched_status_.total_count);
+          rmw_data->total_count_change = static_cast<size_t>(matched_status_.total_count_change);
+          rmw_data->current_count = static_cast<size_t>(matched_status_.current_count);
+          rmw_data->current_count_change = matched_status_.current_count_change;
+          matched_changes_ = false;
+        } else {
+          eprosima::fastdds::dds::SubscriptionMatchedStatus matched_status;
+          subscriber_info_->data_reader_->get_subscription_matched_status(matched_status);
+
+          rmw_data->total_count = static_cast<size_t>(matched_status.total_count);
+          rmw_data->total_count_change = static_cast<size_t>(matched_status.total_count_change);
+          rmw_data->current_count = static_cast<size_t>(matched_status.current_count);
+          rmw_data->current_count_change = matched_status.current_count_change;
+        }
+        matched_status_.total_count_change = 0;
+        matched_status_.current_count_change = 0;
+      }
+      break;
     default:
       return false;
   }
@@ -180,6 +203,17 @@ void SubListener::set_on_new_event_callback(
           if (incompatible_qos_status_.total_count_change > 0) {
             callback(user_data, incompatible_qos_status_.total_count_change);
             incompatible_qos_status_.total_count_change = 0;
+          }
+        }
+        break;
+      case RMW_EVENT_SUBSCRIPTION_MATCHED:
+        {
+          subscriber_info_->data_reader_->get_subscription_matched_status(matched_status_);
+          if (matched_unread_ > 0) {
+            callback(user_data, matched_unread_);
+            matched_unread_ = 0;
+            matched_status_.total_count_change = 0;
+            matched_status_.current_count_change = 0;
           }
         }
         break;
@@ -253,12 +287,7 @@ SubListener::on_requested_deadline_missed(
 
   deadline_changes_ = true;
 
-  if (on_new_event_cb_[RMW_EVENT_REQUESTED_DEADLINE_MISSED]) {
-    on_new_event_cb_[RMW_EVENT_REQUESTED_DEADLINE_MISSED](user_data_[
-        RMW_EVENT_REQUESTED_DEADLINE_MISSED], 1);
-  }
-
-  event_guard[RMW_EVENT_REQUESTED_DEADLINE_MISSED].set_trigger_value(true);
+  trigger_event(RMW_EVENT_REQUESTED_DEADLINE_MISSED);
 }
 
 void SubListener::on_liveliness_changed(
@@ -276,11 +305,7 @@ void SubListener::on_liveliness_changed(
 
   liveliness_changes_ = true;
 
-  if (on_new_event_cb_[RMW_EVENT_LIVELINESS_CHANGED]) {
-    on_new_event_cb_[RMW_EVENT_LIVELINESS_CHANGED](user_data_[RMW_EVENT_LIVELINESS_CHANGED], 1);
-  }
-
-  event_guard[RMW_EVENT_LIVELINESS_CHANGED].set_trigger_value(true);
+  trigger_event(RMW_EVENT_LIVELINESS_CHANGED);
 }
 
 void SubListener::on_sample_lost(
@@ -296,11 +321,7 @@ void SubListener::on_sample_lost(
 
   sample_lost_changes_ = true;
 
-  if (on_new_event_cb_[RMW_EVENT_MESSAGE_LOST]) {
-    on_new_event_cb_[RMW_EVENT_MESSAGE_LOST](user_data_[RMW_EVENT_MESSAGE_LOST], 1);
-  }
-
-  event_guard[RMW_EVENT_MESSAGE_LOST].set_trigger_value(true);
+  trigger_event(RMW_EVENT_MESSAGE_LOST);
 }
 
 void SubListener::on_requested_incompatible_qos(
@@ -317,10 +338,51 @@ void SubListener::on_requested_incompatible_qos(
 
   incompatible_qos_changes_ = true;
 
-  if (on_new_event_cb_[RMW_EVENT_REQUESTED_QOS_INCOMPATIBLE]) {
-    on_new_event_cb_[RMW_EVENT_REQUESTED_QOS_INCOMPATIBLE](user_data_[
-        RMW_EVENT_REQUESTED_QOS_INCOMPATIBLE], 1);
+  trigger_event(RMW_EVENT_REQUESTED_QOS_INCOMPATIBLE);
+}
+
+void SubListener::trigger_event(rmw_event_type_t event_type)
+{
+  if (on_new_event_cb_[event_type]) {
+    on_new_event_cb_[event_type](user_data_[event_type], 1);
+  } else {
+    switch (event_type) {
+      case RMW_EVENT_SUBSCRIPTION_MATCHED:
+        {
+          matched_unread_++;
+          break;
+        }
+      default:
+        break;
+    }
   }
 
-  event_guard[RMW_EVENT_REQUESTED_QOS_INCOMPATIBLE].set_trigger_value(true);
+  event_guard[event_type].set_trigger_value(true);
+}
+
+void SubListener::on_subscription_matched(
+  eprosima::fastdds::dds::DataReader *,
+  const eprosima::fastdds::dds::SubscriptionMatchedStatus & info)
+{
+  rmw_event_type_t event_type = RMW_EVENT_INVALID;
+  {
+    std::lock_guard<std::mutex> lock(discovery_m_);
+    if (info.current_count_change == 1) {
+      publishers_.insert(eprosima::fastrtps::rtps::iHandle2GUID(info.last_publication_handle));
+      event_type = RMW_EVENT_SUBSCRIPTION_MATCHED;
+    } else if (info.current_count_change == -1) {
+      publishers_.erase(eprosima::fastrtps::rtps::iHandle2GUID(info.last_publication_handle));
+      event_type = RMW_EVENT_SUBSCRIPTION_MATCHED;
+    }
+  }
+
+  if (event_type != RMW_EVENT_INVALID) {
+    std::lock_guard<std::mutex> lock(on_new_event_m_);
+    matched_status_.total_count = info.total_count;
+    matched_status_.total_count_change += info.total_count_change;
+    matched_status_.current_count = info.current_count;
+    matched_status_.current_count_change += info.current_count_change;
+    matched_changes_ = true;
+    trigger_event(event_type);
+  }
 }
