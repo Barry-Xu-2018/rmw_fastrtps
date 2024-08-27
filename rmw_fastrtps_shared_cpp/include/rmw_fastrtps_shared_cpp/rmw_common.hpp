@@ -236,11 +236,28 @@ __rmw_send_request(
 
 RMW_FASTRTPS_SHARED_CPP_PUBLIC
 rmw_ret_t
+__rmw_send_serialized_request(
+  const char * identifier,
+  const rmw_client_t * client,
+  const rmw_serialized_message_t * serialized_request,
+  int64_t * sequence_id);
+
+RMW_FASTRTPS_SHARED_CPP_PUBLIC
+rmw_ret_t
 __rmw_take_request(
   const char * identifier,
   const rmw_service_t * service,
   rmw_service_info_t * request_header,
   void * ros_request,
+  bool * taken);
+
+RMW_FASTRTPS_SHARED_CPP_PUBLIC
+rmw_ret_t
+__rmw_take_serialized_request(
+  const char * identifier,
+  const rmw_service_t * service,
+  rmw_service_info_t * request_header,
+  rmw_serialized_message_t * serialized_request,
   bool * taken);
 
 RMW_FASTRTPS_SHARED_CPP_PUBLIC
@@ -254,11 +271,28 @@ __rmw_take_response(
 
 RMW_FASTRTPS_SHARED_CPP_PUBLIC
 rmw_ret_t
+__rmw_take_serialized_response(
+  const char * identifier,
+  const rmw_client_t * client,
+  rmw_service_info_t * request_header,
+  rmw_serialized_message_t * serialized_response,
+  bool * taken);
+
+RMW_FASTRTPS_SHARED_CPP_PUBLIC
+rmw_ret_t
 __rmw_send_response(
   const char * identifier,
   const rmw_service_t * service,
   rmw_request_id_t * request_header,
   void * ros_response);
+
+RMW_FASTRTPS_SHARED_CPP_PUBLIC
+rmw_ret_t
+__rmw_send_serialized_response(
+  const char * identifier,
+  const rmw_service_t * service,
+  rmw_request_id_t * request_header,
+  const rmw_serialized_message_t * serialized_response);
 
 RMW_FASTRTPS_SHARED_CPP_PUBLIC
 rmw_ret_t

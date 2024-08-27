@@ -71,6 +71,53 @@ __rmw_send_request(
 }
 
 rmw_ret_t
+__rmw_send_serialized_request(
+  const char * identifier,
+  const rmw_client_t * client,
+  const rmw_serialized_message_t * serialized_request,
+  int64_t * sequence_id)
+{
+  RMW_CHECK_ARGUMENT_FOR_NULL(client, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
+    client,
+    client->implementation_identifier, identifier,
+    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+  RMW_CHECK_ARGUMENT_FOR_NULL(serialized_request, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_ARGUMENT_FOR_NULL(sequence_id, RMW_RET_INVALID_ARGUMENT);
+
+  rmw_ret_t returnedValue = RMW_RET_ERROR;
+
+  auto info = static_cast<CustomClientInfo *>(client->data);
+  assert(info);
+
+  eprosima::fastcdr::FastBuffer buffer(
+    reinterpret_cast<char *>(serialized_request->buffer), serialized_request->buffer_length);
+  eprosima::fastcdr::Cdr ser(
+    buffer, eprosima::fastcdr::Cdr::DEFAULT_ENDIAN, eprosima::fastcdr::CdrVersion::XCDRv1);
+  ser.set_encoding_flag(eprosima::fastcdr::EncodingAlgorithmFlag::PLAIN_CDR);
+  if (!ser.jump(serialized_request->buffer_length)) {
+    RMW_SET_ERROR_MSG("cannot correctly set serialized buffer");
+    return RMW_RET_ERROR;
+  }
+
+  eprosima::fastrtps::rtps::WriteParams wparams;
+  rmw_fastrtps_shared_cpp::SerializedData data;
+  data.type = FASTRTPS_SERIALIZED_DATA_TYPE_CDR_BUFFER;
+  data.data = &ser;
+  data.impl = nullptr;  // not used when type is FASTRTPS_SERIALIZED_DATA_TYPE_CDR_BUFFER
+  wparams.related_sample_identity().writer_guid() = info->reader_guid_;
+  if (info->request_writer_->write(&data, wparams)) {
+    returnedValue = RMW_RET_OK;
+    *sequence_id = ((int64_t)wparams.sample_identity().sequence_number().high) << 32 |
+      wparams.sample_identity().sequence_number().low;
+  } else {
+    RMW_SET_ERROR_MSG("cannot publish data");
+  }
+
+  return returnedValue;
+}
+
+rmw_ret_t
 __rmw_take_request(
   const char * identifier,
   const rmw_service_t * service,
@@ -148,4 +195,87 @@ __rmw_take_request(
   return RMW_RET_OK;
 }
 
+rmw_ret_t
+__rmw_take_serialized_request(
+  const char * identifier,
+  const rmw_service_t * service,
+  rmw_service_info_t * request_header,
+  rmw_serialized_message_t * serialized_request,
+  bool * taken)
+{
+  RMW_CHECK_ARGUMENT_FOR_NULL(service, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_TYPE_IDENTIFIERS_MATCH(
+    service,
+    service->implementation_identifier, identifier,
+    return RMW_RET_INCORRECT_RMW_IMPLEMENTATION);
+  RMW_CHECK_ARGUMENT_FOR_NULL(request_header, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_ARGUMENT_FOR_NULL(serialized_request, RMW_RET_INVALID_ARGUMENT);
+  RMW_CHECK_ARGUMENT_FOR_NULL(taken, RMW_RET_INVALID_ARGUMENT);
+
+  *taken = false;
+
+  auto info = static_cast<CustomServiceInfo *>(service->data);
+  assert(info);
+
+  CustomServiceRequest request;
+
+  request.buffer_ = new (std::nothrow) eprosima::fastcdr::FastBuffer();
+  if (request_header == nullptr) {
+    return RMW_RET_BAD_ALLOC;
+  }
+
+  rmw_fastrtps_shared_cpp::SerializedData data;
+  data.type = FASTRTPS_SERIALIZED_DATA_TYPE_CDR_BUFFER;
+  data.data = request.buffer_;
+  data.impl = nullptr;  // not used when type is FASTRTPS_SERIALIZED_DATA_TYPE_CDR_BUFFER
+
+  eprosima::fastdds::dds::StackAllocatedSequence<void *, 1> data_values;
+  const_cast<void **>(data_values.buffer())[0] = &data;
+  eprosima::fastdds::dds::SampleInfoSeq info_seq{1};
+
+  if (ReturnCode_t::RETCODE_OK == info->request_reader_->take(data_values, info_seq, 1)) {
+    if (info_seq[0].valid_data) {
+      request.sample_identity_ = info_seq[0].sample_identity;
+      // Use response subscriber guid (on related_sample_identity) when present.
+      const eprosima::fastrtps::rtps::GUID_t & reader_guid =
+        info_seq[0].related_sample_identity.writer_guid();
+      if (reader_guid != eprosima::fastrtps::rtps::GUID_t::unknown()) {
+        request.sample_identity_.writer_guid() = reader_guid;
+      }
+
+      // Save both guids in the clients_endpoints map
+      const eprosima::fastrtps::rtps::GUID_t & writer_guid =
+        info_seq[0].sample_identity.writer_guid();
+      info->pub_listener_->endpoint_add_reader_and_writer(reader_guid, writer_guid);
+
+      // Save serialized request
+      auto buffer_size = static_cast<size_t>(request.buffer_->getBufferSize());
+      if (serialized_request->buffer_capacity < buffer_size) {
+        auto ret = rmw_serialized_message_resize(serialized_request, buffer_size);
+        if (ret != RMW_RET_OK) {
+          return ret;  // Error message already set
+        }
+      }
+      serialized_request->buffer_length = buffer_size;
+      memcpy(
+        serialized_request->buffer,
+        request.buffer_->getBuffer(),
+        serialized_request->buffer_length);
+
+      // Get header
+      rmw_fastrtps_shared_cpp::copy_from_fastrtps_guid_to_byte_array(
+        request.sample_identity_.writer_guid(),
+        request_header->request_id.writer_guid);
+      request_header->request_id.sequence_number =
+        ((int64_t)request.sample_identity_.sequence_number().high) <<
+        32 | request.sample_identity_.sequence_number().low;
+      request_header->source_timestamp = info_seq[0].source_timestamp.to_ns();
+      request_header->received_timestamp = info_seq[0].source_timestamp.to_ns();
+    }
+  }
+
+  delete request.buffer_;
+
+  return RMW_RET_OK;
+}
 }  // namespace rmw_fastrtps_shared_cpp

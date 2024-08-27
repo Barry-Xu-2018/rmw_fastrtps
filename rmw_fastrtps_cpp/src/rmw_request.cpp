@@ -33,6 +33,16 @@ rmw_send_request(
 }
 
 rmw_ret_t
+rmw_send_serialized_request(
+  const rmw_client_t * client,
+  const rmw_serialized_message_t * serialized_request,
+  int64_t * sequence_id)
+{
+  return rmw_fastrtps_shared_cpp::__rmw_send_serialized_request(
+    eprosima_fastrtps_identifier, client, serialized_request, sequence_id);
+}
+
+rmw_ret_t
 rmw_take_request(
   const rmw_service_t * service,
   rmw_service_info_t * request_header,
@@ -41,5 +51,16 @@ rmw_take_request(
 {
   return rmw_fastrtps_shared_cpp::__rmw_take_request(
     eprosima_fastrtps_identifier, service, request_header, ros_request, taken);
+}
+
+rmw_ret_t
+rmw_take_serialized_request(
+  const rmw_service_t * service,
+  rmw_service_info_t * request_header,
+  rmw_serialized_message_t * serialized_request,
+  bool * taken)
+{
+  return rmw_fastrtps_shared_cpp::__rmw_take_serialized_request(
+    eprosima_fastrtps_identifier, service, request_header, serialized_request, taken);
 }
 }  // extern "C"
