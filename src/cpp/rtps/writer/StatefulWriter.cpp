@@ -1725,6 +1725,7 @@ bool StatefulWriter::send_periodic_heartbeat(
         bool final,
         bool liveliness)
 {
+    printf("send_periodic_heartbeat\n");
     std::lock_guard<RecursiveTimedMutex> guardW(mp_mutex);
     std::lock_guard<LocatorSelectorSender> guard_locator_selector_general(locator_selector_general_);
 
@@ -1926,6 +1927,7 @@ void StatefulWriter::send_heartbeat_piggyback_nts_(
 
 void StatefulWriter::perform_nack_response()
 {
+    printf("perform_nack_response\n");
     std::unique_lock<RecursiveTimedMutex> lock(mp_mutex);
 
     uint32_t changes_to_resend = 0;
@@ -1949,6 +1951,7 @@ void StatefulWriter::perform_nack_response()
 void StatefulWriter::perform_nack_supression(
         const GUID_t& reader_guid)
 {
+    printf("perform_nack_supression\n");
     std::unique_lock<RecursiveTimedMutex> lock(mp_mutex);
 
     for_matched_readers(matched_local_readers_, matched_datasharing_readers_, matched_remote_readers_,
@@ -1973,6 +1976,7 @@ bool StatefulWriter::process_acknack(
         bool final_flag,
         bool& result)
 {
+    printf("process_acknack\n");
     std::unique_lock<RecursiveTimedMutex> lock(mp_mutex);
     result = (m_guid == writer_guid);
 
@@ -2085,6 +2089,7 @@ bool StatefulWriter::process_nack_frag(
 
 bool StatefulWriter::ack_timer_expired()
 {
+    printf("ack_timer_expired\n");
     std::unique_lock<RecursiveTimedMutex> lock(mp_mutex);
 
     // The timer has expired so the earliest non-acked change must be marked as acknowledged

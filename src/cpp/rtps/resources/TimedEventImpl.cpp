@@ -91,7 +91,6 @@ void TimedEventImpl::trigger(
         StateCode expected = StateCode::WAITING;
         if (state_.compare_exchange_strong(expected, StateCode::INACTIVE))
         {
-
             //Exec
             bool restart = callback_();
 

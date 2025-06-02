@@ -15,6 +15,10 @@
 /**
  * @file ResourceEvent.cpp
  */
+#include <stdio.h>
+#include <pthread.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 #include <cassert>
 
@@ -291,6 +295,8 @@ void ResourceEvent::do_timer_actions()
         }
     }
 
+    //printf("+%lu %lu\n", (unsigned long)pthread_self(), active_timers_.size());
+
     // If an action was made, keep active_timers_ sorted
     if (did_something)
     {
@@ -322,8 +328,10 @@ void ResourceEvent::init_thread(
 
     *thread_ = eprosima::create_thread([this]()
                     {
+                        printf("pthread_t: %lu <=> %ld\n", (unsigned long)pthread_self(), syscall(SYS_gettid));
                         event_service();
                     }, thread_cfg, name_fmt, thread_id);
+    printf("thread created with id: %lu\n", thread_->get_id());
 }
 
 } /* namespace rtps */

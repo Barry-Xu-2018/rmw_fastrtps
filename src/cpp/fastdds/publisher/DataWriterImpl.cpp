@@ -381,6 +381,10 @@ ReturnCode_t DataWriterImpl::enable()
     // In case it has been loaded from the persistence DB, rebuild instances on history
     history_.rebuild_instances();
 
+    qos_.deadline().period = c_TimeInfinite;
+    printf("+++ deadline_duration_us_: %f ms\n", deadline_duration_us_.count());
+    deadline_duration_us_ = std::chrono::duration<double, std::micro>::max();
+
     deadline_timer_ = new TimedEvent(publisher_->get_participant()->get_resource_event(),
                     [&]() -> bool
                     {
@@ -1460,6 +1464,7 @@ bool DataWriterImpl::deadline_timer_reschedule()
 
 bool DataWriterImpl::deadline_missed()
 {
+    printf("deadline_missed\n");
     assert(qos_.deadline().period != c_TimeInfinite);
 
     std::unique_lock<RecursiveTimedMutex> lock(writer_->getMutex());
@@ -1531,6 +1536,7 @@ ReturnCode_t DataWriterImpl::get_offered_incompatible_qos_status(
 
 bool DataWriterImpl::lifespan_expired()
 {
+    printf("lifespan_expired\n");
     std::unique_lock<RecursiveTimedMutex> lock(writer_->getMutex());
 
     CacheChange_t* earliest_change;

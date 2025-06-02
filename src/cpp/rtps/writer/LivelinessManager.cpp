@@ -315,6 +315,7 @@ bool LivelinessManager::calculate_next()
 
 bool LivelinessManager::timer_expired()
 {
+    printf("timer_expired\n");
     std::unique_lock<std::mutex> lock(mutex_);
 
     if (timer_owner_ == nullptr)
