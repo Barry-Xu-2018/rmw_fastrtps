@@ -331,6 +331,9 @@ rmw_create_service(
     return nullptr;
   }
 
+  std::cout << "+ Topic: " << request_topic_name
+    << " Reader: " << info->request_reader_->guid() << std::endl;
+
   info->request_reader_->get_statuscondition().set_enabled_statuses(
     eprosima::fastdds::dds::StatusMask::data_available());
 
@@ -388,6 +391,9 @@ rmw_create_service(
     RMW_SET_ERROR_MSG("create_service() failed to create response DataWriter");
     return nullptr;
   }
+
+  std::cout << "+ Topic: " << response_topic_name
+    << " Writer: " << info->response_writer_->guid() << std::endl;
 
   // Set the StatusCondition to none to prevent triggering via WaitSets
   info->response_writer_->get_statuscondition().set_enabled_statuses(

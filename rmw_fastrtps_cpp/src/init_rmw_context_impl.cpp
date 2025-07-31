@@ -78,6 +78,8 @@ init_context_impl(
     return RMW_RET_BAD_ALLOC;
   }
 
+  std::cout << "=== Participant: " << participant_info->participant_->guid() << std::endl;
+
   rmw_qos_profile_t qos = rmw_qos_profile_default;
 
   qos.avoid_ros_namespace_conventions = true;

@@ -19,6 +19,7 @@
 
 #include "fastdds/rtps/common/WriteParams.h"
 #include "fastdds/dds/core/StackAllocatedSequence.hpp"
+#include "fastdds/dds/topic/Topic.hpp"
 
 #include "rmw/error_handling.h"
 #include "rmw/rmw.h"
@@ -120,6 +121,13 @@ __rmw_take_request(
         const eprosima::fastrtps::rtps::GUID_t & writer_guid =
           info_seq[0].sample_identity.writer_guid();
         info->pub_listener_->endpoint_add_reader_and_writer(reader_guid, writer_guid);
+
+        std::cout << "--- ["
+          << info->request_reader_->get_topicdescription()->get_name()
+          << "] Request from " << writer_guid
+          << " reply to " << reader_guid
+          << " Sequence: " << request.sample_identity_.sequence_number()
+          << std::endl;
 
         auto raw_type_support = dynamic_cast<rmw_fastrtps_shared_cpp::TypeSupport *>(
           info->response_type_support_.get());

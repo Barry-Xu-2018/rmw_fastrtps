@@ -295,6 +295,9 @@ create_subscription(
     return nullptr;
   }
 
+  std::cout << "+ Topic: " << topic_name
+    << " Reader : " << info->data_reader_->guid() << std::endl;
+
   // Initialize DataReader's StatusCondition to be notified when new data is available
   info->data_reader_->get_statuscondition().set_enabled_statuses(
     eprosima::fastdds::dds::StatusMask::data_available());

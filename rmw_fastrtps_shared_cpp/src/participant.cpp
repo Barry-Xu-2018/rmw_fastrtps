@@ -168,12 +168,12 @@ rmw_fastrtps_shared_cpp::create_participant(
 
     // Add a UDPv4 transport with only localhost enabled
     auto udp_transport = std::make_shared<eprosima::fastdds::rtps::UDPv4TransportDescriptor>();
-    udp_transport->interfaceWhiteList.emplace_back("127.0.0.1");
+    //udp_transport->interfaceWhiteList.emplace_back("127.0.0.1");
     domainParticipantQos.transport().user_transports.push_back(udp_transport);
 
     // Add SHM transport if available
-    auto shm_transport = std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>();
-    domainParticipantQos.transport().user_transports.push_back(shm_transport);
+    //auto shm_transport = std::make_shared<eprosima::fastdds::rtps::SharedMemTransportDescriptor>();
+    //domainParticipantQos.transport().user_transports.push_back(shm_transport);
   }
 
   size_t length = snprintf(nullptr, 0, "enclave=%s;", enclave) + 1;

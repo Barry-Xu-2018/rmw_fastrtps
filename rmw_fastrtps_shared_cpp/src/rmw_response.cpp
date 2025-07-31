@@ -18,6 +18,7 @@
 
 #include "fastdds/rtps/common/WriteParams.h"
 #include "fastdds/dds/core/StackAllocatedSequence.hpp"
+#include "fastdds/dds/topic/Topic.hpp"
 
 #include "rmw/error_handling.h"
 #include "rmw/rmw.h"
@@ -70,6 +71,11 @@ __rmw_take_response(
     if (info_seq[0].valid_data) {
       response.sample_identity_ = info_seq[0].related_sample_identity;
 
+      std::cout << "=== Reply  related_sample_identity writer "
+        << response.sample_identity_.writer_guid()
+        << " . Client request writer: " << info->writer_guid_
+        << std::endl;
+
       if (response.sample_identity_.writer_guid() == info->reader_guid_ ||
         response.sample_identity_.writer_guid() == info->writer_guid_)
       {
@@ -90,6 +96,12 @@ __rmw_take_response(
 
           *taken = true;
         }
+      } else {
+        std::cout << "!!! Reply message is ignored for "
+          << info->response_topic_
+          << " Wanted R: " << info->reader_guid_
+          << " Actual R: " << response.sample_identity_.writer_guid()
+          << std::endl;
       }
     }
   }
@@ -155,6 +167,12 @@ __rmw_send_response(
       return RMW_RET_TIMEOUT;
     }
   }
+
+  std::cout << "=== [" << info->response_writer_->get_topic()->get_name()
+    << "] Send response with related_sample_identity writer "
+    << wparams.related_sample_identity().writer_guid()
+    << " Sequence: " << wparams.related_sample_identity().sequence_number()
+    << std::endl;
 
   rmw_fastrtps_shared_cpp::SerializedData data;
   data.is_cdr_buffer = false;

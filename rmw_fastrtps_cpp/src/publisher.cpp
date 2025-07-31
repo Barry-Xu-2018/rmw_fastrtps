@@ -281,6 +281,9 @@ rmw_fastrtps_cpp::create_publisher(
     return nullptr;
   }
 
+  std::cout << "+ Topic: " << topic_name
+    << " Writer : " << info->data_writer_->guid() << std::endl;
+
   // Set the StatusCondition to none to prevent triggering via WaitSets
   info->data_writer_->get_statuscondition().set_enabled_statuses(
     eprosima::fastdds::dds::StatusMask::none());

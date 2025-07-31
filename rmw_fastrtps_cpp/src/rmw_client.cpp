@@ -332,6 +332,9 @@ rmw_create_client(
     return nullptr;
   }
 
+  std::cout << "+ Topic: " << response_topic_name
+    << " Reader: " << info->response_reader_->guid() << std::endl;
+
   info->response_reader_->get_statuscondition().set_enabled_statuses(
     eprosima::fastdds::dds::StatusMask::data_available());
 
@@ -385,6 +388,9 @@ rmw_create_client(
     RMW_SET_ERROR_MSG("create_client() failed to create request DataWriter");
     return nullptr;
   }
+
+  std::cout << "+ Topic: " << request_topic_name
+    << " Writer: " << info->request_writer_->guid() << std::endl;
 
   // Set the StatusCondition to none to prevent triggering via WaitSets
   info->request_writer_->get_statuscondition().set_enabled_statuses(

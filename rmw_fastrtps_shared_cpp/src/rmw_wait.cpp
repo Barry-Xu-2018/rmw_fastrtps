@@ -76,9 +76,21 @@ __rmw_wait(
       void * data = clients->clients[i];
       auto custom_client_info = static_cast<CustomClientInfo *>(data);
       eprosima::fastdds::dds::SampleInfo sample_info;
+      #if 1
+      auto ret = custom_client_info->response_reader_->get_first_untaken_info(&sample_info);
+      skip_wait |= (ret == ReturnCode_t::RETCODE_OK);
+      if (ret == ReturnCode_t::RETCODE_OK)
+      {
+        std::cout << ">>> Client for replay " << sample_info.related_sample_identity.writer_guid()
+          << " s: " << sample_info.related_sample_identity.sequence_number()
+          << std::endl;
+      }
+      #else
       skip_wait |=
         (ReturnCode_t::RETCODE_OK ==
         custom_client_info->response_reader_->get_first_untaken_info(&sample_info));
+      #endif
+      
       fastdds_wait_set->attach_condition(
         custom_client_info->response_reader_->get_statuscondition());
     }
